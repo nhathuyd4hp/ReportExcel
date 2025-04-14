@@ -34,13 +34,13 @@ def main():
             "追加不足",
             "配送先住所",
             "階",
-            "資料リンク"
+            "資料リンク",
         ],
     )
-    if not isinstance(data,pd.DataFrame):
-        return 
+    if not isinstance(data, pd.DataFrame):
+        return
     # Xóa những dòng 不足
-    data = data[data['追加不足'] != "不足"]
+    data = data[data["追加不足"] != "不足"]
     data = data.head(1)
     # Tải file báo giá
     SP = SharePoint(
@@ -48,12 +48,11 @@ def main():
         username="vietnamrpa@nskkogyo.onmicrosoft.com",
         password="Robot159753",
         download_directory="D:/VanNgocNhatHuy/RPA/Report/SharePoint",
-        )
+    )
     statuses = []
-    for url in data['資料リンク'].to_list():
+    for url in data["資料リンク"].to_list():
         status = SP.download_file(
-            site_url=url,
-            file_pattern="見積書/.*.(xlsm|xlsx|xls)$"
+            site_url=url, file_pattern="見積書/.*.(xlsm|xlsx|xls)$"
         )
         if status[1]:
             statuses.append(status[1])
@@ -61,8 +60,9 @@ def main():
             statuses.append(status[0])
 
     # To excel
-    data['File'] = statuses
-    data.to_excel(f"{uuid4()}.xlsx",index=False)
-    
+    data["File"] = statuses
+    data.to_excel(f"{uuid4()}.xlsx", index=False)
+
+
 if __name__ == "__main__":
     main()

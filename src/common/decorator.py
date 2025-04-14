@@ -4,6 +4,7 @@ import logging
 import functools
 from selenium.webdriver.chrome.webdriver import WebDriver
 
+
 def require_authentication(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
@@ -14,7 +15,9 @@ def require_authentication(func):
         if logger:
             logger.error(f"{func.__name__} yêu cầu xác thực")
         return None
+
     return wrapper
+
 
 def retry(exceptions=()):
     def decorator(func):
@@ -23,9 +26,11 @@ def retry(exceptions=()):
             instance = args[0]
             logger = None
             browser = None
-            if hasattr(instance,"logger") and isinstance(instance.logger,logging.Logger):
+            if hasattr(instance, "logger") and isinstance(
+                instance.logger, logging.Logger
+            ):
                 logger: logging.Logger = instance.logger
-            if hasattr(instance,"browser") and isinstance(instance.browser,WebDriver):
+            if hasattr(instance, "browser") and isinstance(instance.browser, WebDriver):
                 browser: WebDriver = instance.browser
             try:
                 return func(*args, **kwargs)
@@ -38,10 +43,12 @@ def retry(exceptions=()):
                 os.makedirs(os.path.dirname(saved_image), exist_ok=True)
                 browser.save_screenshot(saved_image)
                 if logger:
-                    if hasattr(e,"msg"):
+                    if hasattr(e, "msg"):
                         logger.error(f"{func.__name__}: {e.msg} - {saved_image}")
                     else:
                         logger.error(f"{func.__name__}: {e} - {saved_image}")
                 return None
+
         return wrapper
+
     return decorator

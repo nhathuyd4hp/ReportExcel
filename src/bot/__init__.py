@@ -1,2 +1,2 @@
-from .web_access import WebAccess
-from .share_point import SharePoint
+from .web_access import WebAccess  # noqa
+from .share_point import SharePoint  # noqa

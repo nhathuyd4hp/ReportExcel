@@ -1,14 +1,11 @@
 import os
 import re
 import time
-import shutil
 import logging
 from selenium import webdriver
-from urllib.parse import urljoin
 from src.common.decorator import retry
 from selenium.webdriver import ActionChains
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import TimeoutException
 from src.common.decorator import require_authentication
@@ -67,7 +64,9 @@ class SharePoint:
         while len(self.browser.window_handles) == 1:
             continue
         time.sleep(1)
-        new_window = next(w for w in self.browser.window_handles if w != self.root_window)
+        new_window = next(
+            w for w in self.browser.window_handles if w != self.root_window
+        )
         self.browser.switch_to.window(new_window)
         time.sleep(1)
         self.browser.get("chrome://downloads/")
@@ -82,7 +81,7 @@ class SharePoint:
         """)
         if download_items:
             item = download_items[0]
-            file_name =  self.browser.execute_script(f"""
+            file_name = self.browser.execute_script(f"""
                 return document
                     .querySelector("downloads-manager")
                     .shadowRoot.querySelector("#downloadsList")
@@ -91,19 +90,20 @@ class SharePoint:
                     .shadowRoot.querySelector("#details")
                     .querySelector("#name")
                     .textContent
-                    """
-            )
+                    """)
         self.browser.close()
         self.browser.switch_to.window(self.root_window)
         return file_name
 
-    def __get_status_download(self,file_name:str) -> tuple[str,str]:
+    def __get_status_download(self, file_name: str) -> tuple[str, str]:
         self.browser.execute_script("window.open('');")
         # Wait for open
         while len(self.browser.window_handles) == 1:
             continue
         time.sleep(1)
-        new_window = next(w for w in self.browser.window_handles if w != self.root_window)
+        new_window = next(
+            w for w in self.browser.window_handles if w != self.root_window
+        )
         self.browser.switch_to.window(new_window)
         time.sleep(1)
         self.browser.get("chrome://downloads/")
@@ -128,8 +128,7 @@ class SharePoint:
                     .querySelector("#title-area")
                     .querySelector("#name")
                     .getAttribute("title")
-                """
-            )
+                """)
             tag = self.browser.execute_script(f"""
                 return document
                     .querySelector("downloads-manager").shadowRoot
@@ -141,19 +140,16 @@ class SharePoint:
                     .querySelector("#title-area")
                     .querySelector("#tag")
                     .textContent.trim();
-                """
-            )
+                """)
             if name == file_name:
                 self.browser.close()
                 self.browser.switch_to.window(self.root_window)
-                return os.path.join(self.download_directory,name),tag
+                return os.path.join(self.download_directory, name), tag
         self.browser.close()
         self.browser.switch_to.window(self.root_window)
-        return None,None
-    
-    @retry(
-        exceptions=(TimeoutException)
-    )
+        return None, None
+
+    @retry(exceptions=(TimeoutException))
     def __authentication(self, username: str, password: str) -> bool:
         time.sleep(0.5)
         self.browser.get("https://login.microsoftonline.com/")
@@ -227,14 +223,16 @@ class SharePoint:
         exceptions=(StaleElementReferenceException),
     )
     @require_authentication
-    def get_link_file(self,site_url:str,file:str) -> str:
+    def get_link_file(self, site_url: str, file: str) -> str:
         self.logger.info(f"Lấy link {file}: {site_url}")
 
     @retry(
         exceptions=(StaleElementReferenceException),
     )
     @require_authentication
-    def download_file(self, site_url: str, file_pattern: str) -> list[tuple[bool, list]]:
+    def download_file(
+        self, site_url: str, file_pattern: str
+    ) -> list[tuple[bool, list]]:
         self.logger.info(f"Tải {file_pattern}: {site_url}")
         download_files = []
         time.sleep(0.5)
@@ -346,10 +344,18 @@ class SharePoint:
                     # Nếu display_name match với file là được
                     if pattern.match(display_name):
                         ActionChains(self.browser).context_click(button).perform()
-                        if self.browser.find_elements(By.CSS_SELECTOR,"button[name='Download']"):
-                            download_btn = self.browser.find_element(By.CSS_SELECTOR,"button[name='Download']")
-                            self.wait.until(EC.element_to_be_clickable(download_btn)).click()
-                            lastest_downloaded_file = self.__get_latest_downloaded_file()
+                        if self.browser.find_elements(
+                            By.CSS_SELECTOR, "button[name='Download']"
+                        ):
+                            download_btn = self.browser.find_element(
+                                By.CSS_SELECTOR, "button[name='Download']"
+                            )
+                            self.wait.until(
+                                EC.element_to_be_clickable(download_btn)
+                            ).click()
+                            lastest_downloaded_file = (
+                                self.__get_latest_downloaded_file()
+                            )
                             self.logger.info(f"Tải {lastest_downloaded_file}")
                             download_files.append(lastest_downloaded_file)
         except TimeoutException:
@@ -376,11 +382,15 @@ class SharePoint:
                         ):
                             time.sleep(1)
                             rowSelectionCell_ = row.find_element(
-                                By = By.CSS_SELECTOR, 
-                                value="div[class^='rowSelectionCell_']"
+                                By=By.CSS_SELECTOR,
+                                value="div[class^='rowSelectionCell_']",
                             )
-                            self.wait.until(EC.element_to_be_clickable(rowSelectionCell_)).click()
-                            ActionChains(self.browser).context_click(rowSelectionCell_).perform()
+                            self.wait.until(
+                                EC.element_to_be_clickable(rowSelectionCell_)
+                            ).click()
+                            ActionChains(self.browser).context_click(
+                                rowSelectionCell_
+                            ).perform()
         time.sleep(5)
         if not download_files:
             self.logger.error(f"Không tìm thấy file nào khớp {file_pattern}")
@@ -391,8 +401,6 @@ class SharePoint:
             else:
                 self.logger.info(f"{status[0]} thành công")
         return status
-        
-        
 
 
 __all__ = [SharePoint]
