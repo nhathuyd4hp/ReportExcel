@@ -18,7 +18,6 @@ def require_authentication(func):
 
     return wrapper
 
-
 def retry(exceptions=()):
     def decorator(func):
         @functools.wraps(func)
@@ -35,6 +34,8 @@ def retry(exceptions=()):
             try:
                 return func(*args, **kwargs)
             except exceptions:
+                saved_image = f"./screenshots/{uuid.uuid4()}.png"
+                browser.save_screenshot(saved_image)
                 if logger:
                     logger.info(f"Retry: {func.__name__}")
                 return func(*args, **kwargs)
@@ -43,12 +44,24 @@ def retry(exceptions=()):
                 os.makedirs(os.path.dirname(saved_image), exist_ok=True)
                 browser.save_screenshot(saved_image)
                 if logger:
-                    if hasattr(e, "msg"):
-                        logger.error(f"{func.__name__}: {e.msg} - {saved_image}")
-                    else:
-                        logger.error(f"{func.__name__}: {e} - {saved_image}")
-                return None
+                    logger.error(f"{func.__name__}: {e}")
+                
 
         return wrapper
 
+    return decorator
+
+def safe_window():
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            instance = args[0]
+            logger:logging.Logger = getattr(instance,"logger",None)
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                if logger:
+                    logger.error(e)  
+                return False
+        return wrapper
     return decorator

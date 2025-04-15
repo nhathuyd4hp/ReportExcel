@@ -94,8 +94,8 @@ class SharePoint:
         self.browser.close()
         self.browser.switch_to.window(self.root_window)
         return file_name
-
-    def __get_status_download(self, file_name: str) -> tuple[str, str]:
+    def __get_status_download(self, files: list[str]) -> list[tuple[str, str]]:
+        statuses = []
         self.browser.execute_script("window.open('');")
         # Wait for open
         while len(self.browser.window_handles) == 1:
@@ -141,13 +141,11 @@ class SharePoint:
                     .querySelector("#tag")
                     .textContent.trim();
                 """)
-            if name == file_name:
-                self.browser.close()
-                self.browser.switch_to.window(self.root_window)
-                return os.path.join(self.download_directory, name), tag
+            if name in files:
+                statuses.append((name,tag))
         self.browser.close()
         self.browser.switch_to.window(self.root_window)
-        return None, None
+        return statuses
 
     @retry(exceptions=(TimeoutException))
     def __authentication(self, username: str, password: str) -> bool:
@@ -344,9 +342,10 @@ class SharePoint:
                     # Nếu display_name match với file là được
                     if pattern.match(display_name):
                         ActionChains(self.browser).context_click(button).perform()
-                        if self.browser.find_elements(
-                            By.CSS_SELECTOR, "button[name='Download']"
+                        if self.wait.until(
+                            EC.presence_of_all_elements_located((By.CSS_SELECTOR, "button[name='Download']"))
                         ):
+                            time.sleep(1)
                             download_btn = self.browser.find_element(
                                 By.CSS_SELECTOR, "button[name='Download']"
                             )
@@ -394,13 +393,11 @@ class SharePoint:
         time.sleep(5)
         if not download_files:
             self.logger.error(f"Không tìm thấy file nào khớp {file_pattern}")
-        statuses = [self.__get_status_download(file) for file in download_files]
+        statuses = self.__get_status_download(download_files)
         for status in statuses:
             if status[1]:
                 self.logger.info(f"{status[0]}: {status[1]}")
-            else:
-                self.logger.info(f"{status[0]} thành công")
-        return status
+        return statuses
 
 
 __all__ = [SharePoint]
