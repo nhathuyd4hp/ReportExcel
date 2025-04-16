@@ -2,10 +2,14 @@ import os
 import re
 import logging
 import pandas as pd
+from src.bot import (
+    Excel,
+    SharePoint,
+    WebAccess,
+)
 from datetime import datetime
-from src.bot import WebAccess
-from src.bot import SharePoint
-from src.bot import Excel
+from src.common.decorator import handle_error_func
+from openpyxl.utils import column_index_from_string, get_column_letter
 
 logging.basicConfig(
     level=logging.INFO,
@@ -18,8 +22,13 @@ logging.basicConfig(
     ],
 )
 logger = logging.getLogger(__name__)
-SP_DOWNLOAD_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),"SharePoint")
-def main():
+SP_DOWNLOAD_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "SharePoint"
+)
+
+
+@handle_error_func()
+def main(**kwargs):
     data = WebAccess(
         url="https://webaccess.nsk-cad.com",
         username="hanh0704",
@@ -44,7 +53,7 @@ def main():
     if not isinstance(data, pd.DataFrame):
         return
     # Xóa những dòng 不足
-    data = data[data["追加不足"] != "不足"]
+    data = data[data["追加不足"] != "不足"].head(5)
     # Tải file báo giá
     SP = SharePoint(
         url="https://nskkogyo.sharepoint.com/",
@@ -52,40 +61,72 @@ def main():
         password="Robot159753",
         download_directory=SP_DOWNLOAD_PATH,
     )
-    prices  = []
+    prices = []
     for url in data["資料リンク"].to_list():
-        statuses:list[tuple[str,str]] = SP.download_file(
-            site_url=url, file_pattern="見積書/.*.(xlsm|xlsx|xls)$"
+        statuses: list[tuple[str, str]] = SP.download_file(
+            site_url=url,
+            file_pattern="見積書/.*.(xlsm|xlsx|xls)$",
         )
         status = statuses[0]
         if status[1]:
             prices.append(status[1])
         else:
-            value = Excel(
-                file_path=os.path.join(SP_DOWNLOAD_PATH,status[0])
+            price = Excel(
+                file_path=os.path.join(SP_DOWNLOAD_PATH, status[0])
             ).search_keyword(
                 sheetname="見積書 (3)",
                 keyword="税抜金額",
                 axis=1,
-            )    
-            prices.append(value)
-    data['金額（税抜）'] = prices
-    del data['資料リンク']
+            )
+            prices.append(price)
+    data["金額（税抜）"] = prices
+    del data["資料リンク"]
     # Process data
-    data['金額（税抜）'] = data['金額（税抜）'].astype(str).str.replace(r"[^\d.,]", "", regex=True)
+    data["金額（税抜）"] = (
+        data["金額（税抜）"].astype(str).str.replace(r"[^\d.,]", "", regex=True)
+    )
     # To excel
-    resultFile = f"{datetime.today().strftime("%Y-%m-%d_%H-%M-%S")}.xlsx"
+    resultFile = f"{datetime.today().strftime('%Y-%m-%d_%H-%M-%S')}.xlsx"
     data.to_excel(resultFile, index=False)
     logger.info(f"Kết quả: {resultFile}")
+    
     # Setup Excel File
     excel = Excel(
-        file_path=os.path.join(SP_DOWNLOAD_PATH,resultFile),
+        file_path=resultFile,
         timeout=10,
         retry_interval=0.5,
+    )
+    last_column: str = re.findall(r"[A-Z]+", excel.shape[1])[0]
+    last_row: int = int(re.findall(r"\d+", excel.shape[1])[0])
+    excel.edit(
+        cells=["{column}{row}".format(
+            column=get_column_letter(column_index_from_string(last_column) - 2),
+            row=last_row + 3,
+        )],
+        contents=["合計"],
+        background_colors=["A6A6A6"],
+    )
+    excel.edit(
+        cells=["{column}{row}".format(column=last_column, row=last_row + 3)],
+        contents=["=SUM({from_cell}:{to_cell})".format(
+            from_cell=f"{last_column}2",
+            to_cell=f"{last_column}{last_row}",
+        )],
     )
     excel.page_setup(
         orientation="Landscape",
         header="さくら建設　鋼製野縁納材報告（2025/03/21-2025/04/20）　",
     )
+    excel.format(
+        AutoFitColumnWith=True,
+        Border="All Borders",
+    )
+    excel.save()
+    excel.print()
+
+    
+
 if __name__ == "__main__":
-    main()
+    main(
+        logger=logger,
+    )

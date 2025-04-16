@@ -94,6 +94,7 @@ class SharePoint:
         self.browser.close()
         self.browser.switch_to.window(self.root_window)
         return file_name
+
     def __get_status_download(self, files: list[str]) -> list[tuple[str, str]]:
         statuses = []
         self.browser.execute_script("window.open('');")
@@ -142,7 +143,7 @@ class SharePoint:
                     .textContent.trim();
                 """)
             if name in files:
-                statuses.append((name,tag))
+                statuses.append((name, tag))
         self.browser.close()
         self.browser.switch_to.window(self.root_window)
         return statuses
@@ -343,7 +344,9 @@ class SharePoint:
                     if pattern.match(display_name):
                         ActionChains(self.browser).context_click(button).perform()
                         if self.wait.until(
-                            EC.presence_of_all_elements_located((By.CSS_SELECTOR, "button[name='Download']"))
+                            EC.presence_of_all_elements_located(
+                                (By.CSS_SELECTOR, "button[name='Download']")
+                            )
                         ):
                             time.sleep(1)
                             download_btn = self.browser.find_element(
