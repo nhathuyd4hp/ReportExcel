@@ -64,9 +64,7 @@ def handle_error_method():
                 if logger:
                     logger.error(e)
                 return None
-
         return wrapper
-
     return decorator
 
 

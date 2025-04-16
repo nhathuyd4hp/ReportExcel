@@ -33,7 +33,6 @@ def main(**kwargs):
         url="https://webaccess.nsk-cad.com",
         username="hanh0704",
         password="159753",
-        headless=True,
     ).get_information(
         builder_name="009300",
         delivery_date=["2025/03/21", "2025/04/20"],
@@ -53,7 +52,7 @@ def main(**kwargs):
     if not isinstance(data, pd.DataFrame):
         return
     # Xóa những dòng 不足
-    data = data[data["追加不足"] != "不足"].head(5)
+    data = data[data["追加不足"] != "不足"]
     # Tải file báo giá
     SP = SharePoint(
         url="https://nskkogyo.sharepoint.com/",
@@ -86,32 +85,38 @@ def main(**kwargs):
         data["金額（税抜）"].astype(str).str.replace(r"[^\d.,]", "", regex=True)
     )
     # To excel
-    resultFile = f"{datetime.today().strftime('%Y-%m-%d_%H-%M-%S')}.xlsx"
-    data.to_excel(resultFile, index=False)
-    logger.info(f"Kết quả: {resultFile}")
-    
+    excelFile = f"{datetime.today().strftime('%Y-%m-%d_%H-%M-%S')}.xlsx"
+    logger.info(f"Excel File: {excelFile}")
+    data.to_excel(excelFile, index=False)
+    # ------------ # 
     # Setup Excel File
     excel = Excel(
-        file_path=resultFile,
+        file_path=excelFile,
         timeout=10,
         retry_interval=0.5,
     )
     last_column: str = re.findall(r"[A-Z]+", excel.shape[1])[0]
     last_row: int = int(re.findall(r"\d+", excel.shape[1])[0])
     excel.edit(
-        cells=["{column}{row}".format(
-            column=get_column_letter(column_index_from_string(last_column) - 2),
-            row=last_row + 3,
-        )],
-        contents=["合計"],
-        background_colors=["A6A6A6"],
+        cells=["A1","B1","C1","D1","E1","F1","G1","H1","I1","J1"],
+        background_colors=["A6A6A6","A6A6A6","A6A6A6","A6A6A6","A6A6A6","A6A6A6","A6A6A6","A6A6A6","A6A6A6","A6A6A6"],
     )
     excel.edit(
-        cells=["{column}{row}".format(column=last_column, row=last_row + 3)],
-        contents=["=SUM({from_cell}:{to_cell})".format(
+        cells=[
+            "{column}{row}".format(
+            column=get_column_letter(column_index_from_string(last_column) - 2),
+            row=last_row + 3,
+            ),
+            "{column}{row}".format(column=last_column, row=last_row + 3)
+        ],
+        contents=[
+            "合計",
+            "=SUM({from_cell}:{to_cell})".format(
             from_cell=f"{last_column}2",
             to_cell=f"{last_column}{last_row}",
-        )],
+            )
+        ],
+        background_colors=["A6A6A6"],
     )
     excel.page_setup(
         orientation="Landscape",
@@ -122,7 +127,8 @@ def main(**kwargs):
         Border="All Borders",
     )
     excel.save()
-    excel.print()
+    file = excel.export()
+    logger.info(f"PDF File: {file}")
 
     
 

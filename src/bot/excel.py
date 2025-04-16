@@ -69,6 +69,7 @@ class Excel:
     def __del__(self):
         ExcelApp: WindowSpecification = self.App.window(title=self.title)
         ExcelApp.close()
+        time.sleep(2.5)
         if not self.auto_save:
             wait_until_passes(
                 timeout=self.timeout,
@@ -179,9 +180,8 @@ class Excel:
     ) -> bool:
         # self.logger.info(f"{sheet}: {cell}='{content}'")
         # Exit App #
-        ExcelApp: WindowSpecification = self.App.window(title=self.title)
-        ExcelApp.close()
-        time.sleep(5)
+        self.__del__()
+        time.sleep(2.5)
         workbook = load_workbook(self.file_path)
         sheet:Worksheet = workbook[sheet]
         # Edit
@@ -193,6 +193,7 @@ class Excel:
             if content:
                 cell: Cell = sheet.cell(row=row, column=col, value=content)
             if background_color:
+                cell: Cell = sheet.cell(row=row, column=col)
                 fill = PatternFill(fill_type="solid", fgColor=background_color)
                 cell.fill = fill
         workbook.save(self.file_path)
@@ -262,8 +263,14 @@ class Excel:
         # --#
 
     @handle_error_method()
-    def print(self):
-        self.logger.info(f"Print {self.title}")
+    def export(
+        self,
+        file_name:str=None,
+    ) -> str:
+        if file_name and not file_name.endswith(".pdf"):
+            self.logger.error("Chỉ hỗ trợ export sang PDF")
+            return None
+        self.logger.info(f"Export {self.title}")
         ExcelApp: WindowSpecification = self.App.window(title=self.title)
         self.__wait_for_exists(
             ExcelApp.child_window(
@@ -271,9 +278,34 @@ class Excel:
             )
         ).click_input()
         self.__wait_for_exists(
-            ExcelApp.child_window(title="Print", control_type="ListItem")
+            ExcelApp.child_window(title="Export", control_type="ListItem")
         ).click_input()
-        pass
+        self.__wait_for_exists(
+            ExcelApp.child_window(title="Create PDF/XPS", control_type="Button")
+        ).click_input()
+        time.sleep(2)
+        CheckBox = self.__wait_for_exists(
+            ExcelApp.child_window(title="Open file after publishing", control_type="CheckBox")
+        ) 
+        if CheckBox.get_toggle_state() == 1:
+            CheckBox.click_input()
+        if file_name:
+            self.__wait_for_exists(
+                ExcelApp.child_window(title="File name:", auto_id="FileNameControlHost", control_type="ComboBox")
+            ).type_keys(file_name,pause=0.5)
+        self.__wait_for_exists(
+            ExcelApp.child_window(title="Publish", auto_id="1", control_type="Button")
+        ).click_input()
+        time.sleep(0.5)
+        if ExcelApp.child_window(title="Confirm Save As", control_type="Window").exists():
+            self.__wait_for_exists(
+                ExcelApp.child_window(title="Yes", auto_id="CommandButton_6", control_type="Button")
+            ).click_input()
+        if file_name:
+            return file_name
+        else:
+            base, _ = os.path.splitext(self.file_path)
+            return base + ".pdf"
 
     @handle_error_method()
     def search_keyword(self, sheetname: str, keyword: str, axis: int = 0) -> str | None:

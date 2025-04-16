@@ -181,3 +181,4 @@ cython_debug/
 *.xlsx
 *.xlsm
 *.png
+*.pdf

@@ -21,7 +21,7 @@ class WebAccess:
         url: str,
         username: str,
         password: str,
-        timeout: int = 10,
+        timeout: int = 5,
         headless: bool = False,
         download_directory: str = os.path.dirname(os.path.abspath(__file__)),
         logger_name: str = __name__,
