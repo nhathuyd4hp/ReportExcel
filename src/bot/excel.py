@@ -308,7 +308,7 @@ class Excel:
             return base + ".pdf"
 
     @handle_error_method()
-    def search_keyword(self, sheetname: str, keyword: str, axis: int = 0) -> str | None:
+    def search(self,keyword: str, axis: int = 0, sheetname: str="Sheet1") -> str | None:
         workbook = load_workbook(
             filename=self.file_path,
             data_only=True,

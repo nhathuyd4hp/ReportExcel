@@ -52,7 +52,7 @@ def main(**kwargs):
     if not isinstance(data, pd.DataFrame):
         return
     # Xóa những dòng 不足
-    data = data[data["追加不足"] != "不足"]
+    data = data[data["追加不足"] != "不足"].head(2)
     # Tải file báo giá
     SP = SharePoint(
         url="https://nskkogyo.sharepoint.com/",
@@ -72,24 +72,22 @@ def main(**kwargs):
         else:
             price = Excel(
                 file_path=os.path.join(SP_DOWNLOAD_PATH, status[0])
-            ).search_keyword(
+            ).search(
                 sheetname="見積書 (3)",
                 keyword="税抜金額",
                 axis=1,
             )
+            price = re.sub(r"[^\d.,]", "", price) # Convert to numberic
             prices.append(price)
     data["金額（税抜）"] = prices
+    data["金額（税抜）"] = pd.to_numeric(data["金額（税抜）"], errors='coerce')
     del data["資料リンク"]
-    # Process data
-    data["金額（税抜）"] = (
-        data["金額（税抜）"].astype(str).str.replace(r"[^\d.,]", "", regex=True)
-    )
-    # To excel
+    # Save 
     excelFile = f"{datetime.today().strftime('%Y-%m-%d_%H-%M-%S')}.xlsx"
     logger.info(f"Excel File: {excelFile}")
     data.to_excel(excelFile, index=False)
     # ------------ # 
-    # Setup Excel File
+    # Setup
     excel = Excel(
         file_path=excelFile,
         timeout=10,
@@ -98,7 +96,9 @@ def main(**kwargs):
     last_column: str = re.findall(r"[A-Z]+", excel.shape[1])[0]
     last_row: int = int(re.findall(r"\d+", excel.shape[1])[0])
     excel.edit(
-        cells=["A1","B1","C1","D1","E1","F1","G1","H1","I1","J1"],
+        cells=[
+            "A1","B1","C1","D1","E1","F1","G1","H1","I1","J1"
+        ],
         background_colors=["A6A6A6","A6A6A6","A6A6A6","A6A6A6","A6A6A6","A6A6A6","A6A6A6","A6A6A6","A6A6A6","A6A6A6"],
     )
     excel.edit(
