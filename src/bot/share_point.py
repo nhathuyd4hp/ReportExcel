@@ -235,8 +235,8 @@ class SharePoint:
         self.logger.info(f"Tải {file_pattern}: {site_url}")
         download_files = []
         time.sleep(0.5)
-        if not self.browser.current_url == site_url:
-            self.browser.get(site_url)
+        self.browser.get(site_url)
+        time.sleep(0.5)
         while self.browser.execute_script("return document.readyState") != "complete":
             continue
         # Access Denied
@@ -309,7 +309,7 @@ class SharePoint:
                             break
         if not found_folder:
             self.logger.info(f"Không tìm thấy {file_pattern}")
-            return (False, [])
+            return []
         # -- File --
         pattern = file_pattern.split("/")[-1]
         pattern = re.compile(pattern)

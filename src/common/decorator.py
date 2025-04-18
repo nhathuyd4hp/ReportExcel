@@ -52,7 +52,7 @@ def retry(exceptions=()):
     return decorator
 
 
-def handle_error_method():
+def HandleExceptionMethod():
     def decorator(method):
         @functools.wraps(method)
         def wrapper(*args, **kwargs):
@@ -64,11 +64,13 @@ def handle_error_method():
                 if logger:
                     logger.error(e)
                 return None
+
         return wrapper
+
     return decorator
 
 
-def handle_error_func():
+def HandleExceptionFunc():
     def decorator(method):
         @functools.wraps(method)
         def wrapper(*args, **kwargs):

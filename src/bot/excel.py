@@ -10,19 +10,19 @@ from openpyxl.utils import coordinate_to_tuple
 from pywinauto.timings import wait_until_passes
 from openpyxl.worksheet.worksheet import Worksheet
 from pywinauto.controls.uiawrapper import UIAWrapper
-from src.common.decorator import handle_error_method
+from src.common.decorator import HandleExceptionMethod
 from pywinauto.application import WindowSpecification
 from pywinauto.controls.uia_controls import ButtonWrapper
 
 
 class Excel:
-    @handle_error_method()
+    @HandleExceptionMethod()
     def __init__(
         self,
         file_path: str,
         timeout: int = 10,
         retry_interval: float = 0.5,
-        auto_save:bool=False,
+        auto_save: bool = False,
         logger_name: str = __name__,
     ):
         self.logger = logging.getLogger(logger_name)
@@ -33,11 +33,11 @@ class Excel:
         self.timeout = timeout
         self.auto_save = auto_save
         self.retry_interval = retry_interval
-        Application(backend="uia").start(
-            r'"C:\Program Files\Microsoft Office\root\Office16\EXCEL.EXE" "{}"'.format(
+        cmd = r'"C:\Program Files\Microsoft Office\root\Office16\EXCEL.EXE" "{}"'.format(
                 file_path
-            )
         )
+        print(cmd)
+        Application(backend="uia").start(cmd)
         while True:
             titles = [w.window_text() for w in Desktop(backend="uia").windows()]
             if found := [
@@ -51,21 +51,27 @@ class Excel:
         self.App: Application = Application(backend="uia").connect(title=self.title)
         if self.title.find("[Protected View]") != -1:
             ExcelApp: WindowSpecification = self.App.window(title=self.title)
-            EnableEditingButton: WindowSpecification = ExcelApp.child_window(
-                title="Enable Editing", control_type="Button"
-            )
-            wait_until_passes(
+            EnableEditingButton: UIAWrapper = wait_until_passes(
                 timeout=self.timeout,
                 retry_interval=self.retry_interval,
-                func=lambda: EnableEditingButton.exists(timeout=self.timeout),
+                func=lambda: ExcelApp.child_window(
+                    title="Enable Editing", control_type="Button"
+                ).wrapper_object(),
             )
-            EnableEditingButton.wrapper_object().click_input(double=True)
+            EnableEditingButton.click_input(double=True)
         time.sleep(5)
-        while self.App.window().window_text().find("[Protected View]") != -1:
-            continue
-        self.title = self.App.window().window_text()
+        if self.App.window().window_text().find("[Protected View]") != -1:
+            return self.__init__(
+                file_path=self.file_path,
+                timeout=self.timeout,
+                retry_interval=self.retry_interval,
+                auto_save=self.auto_save,
+                logger_name=self.logger.name,
+            )
+        else:
+            self.title = self.App.window().window_text()
 
-    @handle_error_method()
+    @HandleExceptionMethod()
     def __del__(self):
         ExcelApp: WindowSpecification = self.App.window(title=self.title)
         ExcelApp.close()
@@ -74,22 +80,28 @@ class Excel:
             wait_until_passes(
                 timeout=self.timeout,
                 retry_interval=self.retry_interval,
-                func=lambda: ExcelApp.child_window(title="Don't Save", control_type="Button").exists()
+                func=lambda: ExcelApp.child_window(
+                    title="Don't Save", control_type="Button"
+                ).exists(),
             )
-            DontSaveButton: UIAWrapper = ExcelApp.child_window(title="Don't Save", control_type="Button").wrapper_object()
+            DontSaveButton: UIAWrapper = ExcelApp.child_window(
+                title="Don't Save", control_type="Button"
+            ).wrapper_object()
             DontSaveButton.click_input()
         else:
             wait_until_passes(
                 timeout=self.timeout,
                 retry_interval=self.retry_interval,
-                func=lambda: ExcelApp.child_window(title="Save", control_type="Button").exists()
+                func=lambda: ExcelApp.child_window(
+                    title="Save", control_type="Button"
+                ).exists(),
             )
-            DontSaveButton: UIAWrapper = ExcelApp.child_window(title="Save", control_type="Button").wrapper_object()
+            DontSaveButton: UIAWrapper = ExcelApp.child_window(
+                title="Save", control_type="Button"
+            ).wrapper_object()
             DontSaveButton.click_input()
-            
-        
-        
-    @handle_error_method()
+
+    @HandleExceptionMethod()
     def __wait_for_exists(self, window: WindowSpecification) -> UIAWrapper | None:
         wait_until_passes(
             timeout=self.timeout,
@@ -97,16 +109,14 @@ class Excel:
             func=lambda: window.exists(timeout=self.timeout),
         )
         return window.wrapper_object()
-    
-    
-        
+
     @property
-    def shape(self,sheet:str="Sheet1") -> tuple[str]:
+    def shape(self, sheet: str = "Sheet1") -> tuple[str]:
         workbook = load_workbook(self.file_path)
         sheet = workbook[sheet]
         return tuple(sheet.dimensions.split(":"))
 
-    @handle_error_method()
+    @HandleExceptionMethod()
     def page_setup(
         self,
         orientation: Literal["Landscape", "Portrait"] = "Portrait",
@@ -170,26 +180,32 @@ class Excel:
         ).click_input()
         return True
 
-    @handle_error_method()
+    @HandleExceptionMethod()
     def edit(
         self,
         cells: list[str] = [],
-        contents: list[str]= [],
-        background_colors:list[str] = [],
-        sheet:str="Sheet1"
+        contents: list[str] = [],
+        background_colors: list[str] = [],
+        sheet: str = "Sheet1",
     ) -> bool:
         # self.logger.info(f"{sheet}: {cell}='{content}'")
         # Exit App #
         self.__del__()
         time.sleep(2.5)
         workbook = load_workbook(self.file_path)
-        sheet:Worksheet = workbook[sheet]
+        sheet: Worksheet = workbook[sheet]
         # Edit
-        for index,cell in enumerate(cells):
+        for index, cell in enumerate(cells):
             row, col = coordinate_to_tuple(cell)
             content = contents[index] if len(contents) >= index + 1 else None
-            background_color = background_colors[index] if len(background_colors) >= index + 1 else None
-            self.logger.info(f"{sheet}, {cell}(background={background_color}) = {content}")
+            background_color = (
+                background_colors[index]
+                if len(background_colors) >= index + 1
+                else None
+            )
+            self.logger.info(
+                f"{sheet}, {cell}(background={background_color}) = {content}"
+            )
             if content:
                 cell: Cell = sheet.cell(row=row, column=col, value=content)
             if background_color:
@@ -198,20 +214,87 @@ class Excel:
                 cell.fill = fill
         workbook.save(self.file_path)
         # Reopen
-        self.__init__(file_path=self.file_path, timeout=self.timeout, retry_interval=self.retry_interval)
+        self.__init__(
+            file_path=self.file_path,
+            timeout=self.timeout,
+            retry_interval=self.retry_interval,
+        )
         return True
 
-    @handle_error_method()
+    @HandleExceptionMethod()
     def save(self):
         ExcelApp: WindowSpecification = self.App.window(title=self.title)
         SaveButton = self.__wait_for_exists(
-            ExcelApp.child_window(title="Save", auto_id="FileSave", control_type="Button")
+            ExcelApp.child_window(
+                title="Save", auto_id="FileSave", control_type="Button"
+            )
         )
         SaveButton.click_input()
         SaveButton.click_input()
         SaveButton.click_input()
-        
-    @handle_error_method()
+
+    @HandleExceptionMethod()
+    def format_cells(self,range:str,tab:str="Number",**kwargs):
+        ExcelApp: WindowSpecification = self.App.window(title=self.title)
+        self.__wait_for_exists(
+            ExcelApp.child_window(auto_id="A1", control_type="DataItem")
+        ).type_keys("{ENTER}")
+        NameBox = self.__wait_for_exists(
+            ExcelApp.child_window(title="Name Box", auto_id="1001", control_type="Edit")
+        )
+        NameBox.click_input(double=True)
+        NameBox.type_keys(range)
+        NameBox.type_keys("{ENTER}", pause=1)
+        self.__wait_for_exists(
+            ExcelApp.child_window(
+                title="Home", auto_id="TabHome", control_type="TabItem"
+            )
+        ).select()
+        FormatCellsMenu = self.__wait_for_exists(
+            ExcelApp.child_window(
+                title="Format", auto_id="FormatCellsMenu", control_type="MenuItem"
+            )
+        )
+        FormatCellsMenu.click_input()
+        FormatCellsMenu.click_input(
+            button_down=False,
+        )
+        FormatCellNumber = self.__wait_for_exists(
+            ExcelApp.child_window(title="Format Cell Number", auto_id="FormatCellsNumberDialog", control_type="Button")
+        )
+        FormatCellNumber.click_input(double=True)
+        self.__wait_for_exists(
+            ExcelApp.child_window(title=tab, control_type="TabItem")
+        ).select()       
+        self.__wait_for_exists(
+            ExcelApp.child_window(title="Number", control_type="ListItem")
+        ).select()
+        Use1000Separator = self.__wait_for_exists(
+            ExcelApp.child_window(title="Use 1000 Separator (.)", control_type="CheckBox")
+        )
+        while Use1000Separator.get_toggle_state() == 0:
+            Use1000Separator.click_input()
+        #-#
+        import io
+        import sys
+        output = io.StringIO()
+        sys.stdout = output
+        ExcelApp.print_control_identifiers()
+        sys.stdout = sys.__stdout__
+        control_identifiers = output.getvalue()
+        with open('control.txt', 'w', encoding='utf-8') as f:
+            f.write(control_identifiers)
+        #-#
+        DecimalPlaces: UIAWrapper = self.__wait_for_exists(
+            ExcelApp.child_window(title="Decimal places:", control_type="Spinner")
+        )
+        DecimalPlaces.click_input(double=True)
+        DecimalPlaces.type_keys("^a{DELETE}",pause=1)
+        DecimalPlaces.type_keys("0",pause=1)
+        self.__wait_for_exists(
+            ExcelApp.child_window(title="OK", control_type="Button")
+        ).click_input(double=True)
+    @HandleExceptionMethod()
     def format(
         self,
         AutoFitColumnWith: bool = False,
@@ -227,7 +310,7 @@ class Excel:
         )
         NameBox.click_input(double=True)
         NameBox.type_keys(f"{self.shape[0]}:{self.shape[1]}")
-        NameBox.type_keys("{ENTER}",pause=1)
+        NameBox.type_keys("{ENTER}", pause=1)
         # - AutoFitColumnWith - #
         if AutoFitColumnWith:
             self.__wait_for_exists(
@@ -262,10 +345,10 @@ class Excel:
         ).click_input()
         # --#
 
-    @handle_error_method()
+    @HandleExceptionMethod()
     def export(
         self,
-        file_name:str=None,
+        file_name: str = None,
     ) -> str:
         if file_name and not file_name.endswith(".pdf"):
             self.logger.error("Chỉ hỗ trợ export sang PDF")
@@ -285,21 +368,31 @@ class Excel:
         ).click_input()
         time.sleep(2)
         CheckBox = self.__wait_for_exists(
-            ExcelApp.child_window(title="Open file after publishing", control_type="CheckBox")
-        ) 
+            ExcelApp.child_window(
+                title="Open file after publishing", control_type="CheckBox"
+            )
+        )
         if CheckBox.get_toggle_state() == 1:
             CheckBox.click_input()
         if file_name:
             self.__wait_for_exists(
-                ExcelApp.child_window(title="File name:", auto_id="FileNameControlHost", control_type="ComboBox")
-            ).type_keys(file_name,pause=0.5)
+                ExcelApp.child_window(
+                    title="File name:",
+                    auto_id="FileNameControlHost",
+                    control_type="ComboBox",
+                )
+            ).type_keys(file_name, pause=0.5)
         self.__wait_for_exists(
             ExcelApp.child_window(title="Publish", auto_id="1", control_type="Button")
         ).click_input()
         time.sleep(0.5)
-        if ExcelApp.child_window(title="Confirm Save As", control_type="Window").exists():
+        if ExcelApp.child_window(
+            title="Confirm Save As", control_type="Window"
+        ).exists():
             self.__wait_for_exists(
-                ExcelApp.child_window(title="Yes", auto_id="CommandButton_6", control_type="Button")
+                ExcelApp.child_window(
+                    title="Yes", auto_id="CommandButton_6", control_type="Button"
+                )
             ).click_input()
         if file_name:
             return file_name
@@ -307,8 +400,10 @@ class Excel:
             base, _ = os.path.splitext(self.file_path)
             return base + ".pdf"
 
-    @handle_error_method()
-    def search(self,keyword: str, axis: int = 0, sheetname: str="Sheet1") -> str | None:
+    @HandleExceptionMethod()
+    def search(
+        self, keyword: str, axis: int = 0, sheetname: str = "Sheet1"
+    ) -> str | None:
         workbook = load_workbook(
             filename=self.file_path,
             data_only=True,
